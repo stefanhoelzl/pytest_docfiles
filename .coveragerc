@@ -1,0 +1,13 @@
+[run]
+command_line = -m pytest --profile quick
+branch = True
+source = pytest_docfiles
+
+
+[report]
+fail_under = 100
+show_missing = True
+
+
+[html]
+directory = cov_html
