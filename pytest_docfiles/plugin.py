@@ -2,6 +2,7 @@
 import ast
 import itertools
 import json
+import types
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Union
 
@@ -51,6 +52,7 @@ class PythonCodeSection(pytest.Item):  # pylint: disable=too-many-instance-attri
         fixtures: List[str],
         scope: Dict[str, Any],
         skip: bool,
+        raises: Optional[str],
     ):
         super().__init__(name, parent)
         self.lineno = lineno
@@ -58,10 +60,22 @@ class PythonCodeSection(pytest.Item):  # pylint: disable=too-many-instance-attri
         self.scope = scope
         self.skip = skip
         self.fixtures = fixtures
+        self.raises = raises
         self.own_markers = [Mark("usefixtures", args=tuple(fixtures), kwargs={})]
 
         self.funcargs = {}  # type: ignore
         self._fixtureinfo = None
+
+    def runtest(self) -> None:
+        if self.skip:
+            pytest.skip()
+        self._setup_fixtures()
+        self._execute()
+
+    def _setup_fixtures(self) -> None:
+        fixture_request = self._setup_fixture_request()
+        for fixture in self.fixtures:
+            self.scope[fixture] = fixture_request.getfixturevalue(fixture)
 
     def _setup_fixture_request(self) -> FixtureRequest:
         fixturemanager = (
@@ -74,22 +88,22 @@ class PythonCodeSection(pytest.Item):  # pylint: disable=too-many-instance-attri
         fixture_request._fillfixtures()  # pylint: disable=protected-access
         return fixture_request
 
-    def runtest(self) -> None:
-        if self.skip:
-            pytest.skip()
-
+    def _compile(self) -> types.CodeType:
         tree = ast.parse(self.source)
-
         rewrite_asserts(
             tree, self.source.encode("utf-8"), str(self.fspath), self.config
         )
+        return compile(tree, str(self.fspath), "exec", dont_inherit=True)  # type: ignore
 
-        compiled = compile(tree, str(self.fspath), "exec", dont_inherit=True)
-        fixture_request = self._setup_fixture_request()
-        for fixture in self.fixtures:
-            self.scope[fixture] = fixture_request.getfixturevalue(fixture)
+    def _execute(self) -> None:
+        try:
+            exec(self._compile(), self.scope)  # pylint: disable=exec-used
+        except Exception as exception:  # pylint: disable=broad-except
+            self._raise(exception)
 
-        exec(compiled, self.scope)  # pylint: disable=exec-used
+    def _raise(self, exception: Exception) -> None:
+        if type(exception).__name__ != self.raises:
+            raise exception
 
     def repr_failure(
         self,
@@ -139,6 +153,7 @@ class MarkdownFile(pytest.File):
                 fixtures=parsed_args.get("fixtures", []),
                 scope=scopes.setdefault(parsed_args.get("scope"), {}),
                 skip=parsed_args.get("skip", False),
+                raises=parsed_args.get("raises"),
             )
 
 

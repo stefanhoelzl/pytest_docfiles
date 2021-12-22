@@ -81,3 +81,10 @@ assert value is True
 raise Exception("this section should not run")
 ```
 ````
+
+### Exception Handling
+````md
+```python {"raises": "RuntimeError"}
+raise RuntimeError("this section should pass")
+```
+````

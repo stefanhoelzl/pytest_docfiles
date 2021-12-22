@@ -146,3 +146,16 @@ def test_skip(pytester: pytest.Pytester) -> None:
     )
     result = pytester.runpytest("--docfiles", "-k", "doc.md")
     assert result.ret == 0
+
+
+def test_exception_handling(pytester: pytest.Pytester) -> None:
+    pytester.makefile(
+        ".md",
+        doc=joined(
+            """```python {"raises": "RuntimeError"}""",
+            "raise RuntimeError('should pass')",
+            "```",
+        ),
+    )
+    result = pytester.runpytest("--docfiles", "-k", "doc.md")
+    assert result.ret == 0
