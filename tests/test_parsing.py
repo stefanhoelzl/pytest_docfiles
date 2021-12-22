@@ -19,6 +19,14 @@ def test_collect_and_parse_code_section(pytester: pytest.Pytester) -> None:
     assert items[0].source == "# comment\npass\n"  # type: ignore
 
 
+def test_parse_custom_name(pytester: pytest.Pytester) -> None:
+    pytester.makefile(".md", doc="""```python {"name": "name"}\n\n```""")
+
+    items, _ = pytester.inline_genitems("--docfiles")
+
+    assert items[0].name == "name"
+
+
 def test_dont_collect_non_python_code_section(pytester: pytest.Pytester) -> None:
     pytester.makefile(".md", doc="```non-python\n```")
     items, _ = pytester.inline_genitems("--docfiles")

@@ -1,6 +1,7 @@
 """pytest plugin to run code section in documentation files."""
 import ast
 import itertools
+import json
 import types
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
@@ -99,7 +100,7 @@ def _code_tokens(
 ) -> Generator[markdown_it.token.Token, None, None]:
     markdown = markdown_it.MarkdownIt()
     for token in markdown.parse(path.read_text(encoding="utf-8")):
-        if token.tag == "code" and token.info == lang:
+        if token.tag == "code" and token.info.startswith(lang):
             yield token
 
 
@@ -108,13 +109,14 @@ class MarkdownFile(pytest.File):
 
     def collect(self) -> Generator[pytest.Item, None, None]:
         """Collects python code sections from a markdown file."""
-        for num, token in enumerate(
-            _code_tokens(Path(str(self.fspath)), lang="python")
-        ):
+        lang = "python"
+        for num, token in enumerate(_code_tokens(Path(str(self.fspath)), lang=lang)):
             lineno = token.map[0] + 1  # type: ignore
+            args = token.info[len(lang) :].strip()
+            parsed_args = json.loads(args) if args else {}
             yield PythonCodeSection.from_parent(
                 self,
-                name=f"python-section-{num}",
+                name=parsed_args.pop("name", f"python-section-{num}"),
                 source=token.content,
                 lineno=lineno,
             )
