@@ -74,3 +74,9 @@ value = True
 assert value is True
 ```
 ````
+
+### Skip Sections
+````md
+```python {"skip": true}
+raise Exception("this section should not run")
+````

@@ -50,11 +50,13 @@ class PythonCodeSection(pytest.Item):
         lineno: int,
         fixtures: List[str],
         scope: Dict[str, Any],
+        skip: bool,
     ):
         super().__init__(name, parent)
         self.lineno = lineno
         self.source = source
         self.scope = scope
+        self.skip = skip
         self.own_markers = [Mark("usefixtures", args=tuple(fixtures), kwargs={})]
 
         self.funcargs = {}  # type: ignore
@@ -72,6 +74,9 @@ class PythonCodeSection(pytest.Item):
         return fixture_request
 
     def runtest(self) -> None:
+        if self.skip:
+            pytest.skip()
+
         tree = ast.parse(self.source)
 
         rewrite_asserts(
@@ -132,6 +137,7 @@ class MarkdownFile(pytest.File):
                 lineno=lineno,
                 fixtures=parsed_args.get("fixtures", []),
                 scope=scopes.setdefault(parsed_args.get("scope"), {}),
+                skip=parsed_args.get("skip", False),
             )
 
 
