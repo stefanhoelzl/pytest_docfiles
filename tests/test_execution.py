@@ -104,3 +104,16 @@ def test_explicit_use_fixture(pytester: pytest.Pytester) -> None:
     )
     result = pytester.runpytest("--docfiles", "-k", "doc.md")
     assert result.ret == 0
+
+
+def test_inject_fixtures_into_global_namespace(pytester: pytest.Pytester) -> None:
+    pytester.makefile(
+        ".md",
+        doc=joined(
+            """```python {"fixtures": ["tmp_path"]}""",
+            "assert tmp_path.exists()",
+            "```",
+        ),
+    )
+    result = pytester.runpytest("--docfiles", "-k", "doc.md")
+    assert result.ret == 0

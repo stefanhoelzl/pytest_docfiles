@@ -59,16 +59,16 @@ class PythonCodeSection(pytest.Item):
         self.funcargs = {}  # type: ignore
         self._fixtureinfo = None
 
-    def setup(self) -> None:
+    def _setup_fixture_request(self) -> FixtureRequest:
         fixturemanager = (
             self.session._fixturemanager  # pylint: disable=protected-access
         )
         self._fixtureinfo = fixturemanager.getfixtureinfo(  # type: ignore
             node=self, func=None, cls=None, funcargs=False
         )
-        FixtureRequest(  # pylint: disable=protected-access
-            self, _ispytest=True
-        )._fillfixtures()
+        fixture_request = FixtureRequest(self, _ispytest=True)
+        fixture_request._fillfixtures()  # pylint: disable=protected-access
+        return fixture_request
 
     def runtest(self) -> None:
         tree = ast.parse(self.source)
@@ -79,6 +79,11 @@ class PythonCodeSection(pytest.Item):
 
         compiled = compile(tree, str(self.fspath), "exec", dont_inherit=True)
         mod = types.ModuleType(self.name)
+
+        fixture_request = self._setup_fixture_request()
+        for fixture in ["tmp_path"]:
+            mod.__dict__[fixture] = fixture_request.getfixturevalue(fixture)
+
         exec(compiled, mod.__dict__)  # pylint: disable=exec-used
 
     def repr_failure(
