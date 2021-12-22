@@ -4,7 +4,7 @@ import itertools
 import json
 import types
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator, List, Optional, Union
 
 import markdown_it
 import py
@@ -13,6 +13,7 @@ from _pytest._code.code import ExceptionInfo, TerminalRepr, TracebackEntry
 from _pytest.assertion.rewrite import rewrite_asserts
 from _pytest.config.argparsing import Parser
 from _pytest.fixtures import FixtureRequest
+from _pytest.mark import Mark
 
 
 class SectionTracebackEntry(TracebackEntry):
@@ -42,23 +43,28 @@ class SectionTracebackEntry(TracebackEntry):
 class PythonCodeSection(pytest.Item):
     """pytest representation of a markdown python code section."""
 
-    def __init__(self, name: str, parent: pytest.Collector, source: str, lineno: int):
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        name: str,
+        parent: pytest.Collector,
+        source: str,
+        lineno: int,
+        fixtures: List[str],
+    ):
         super().__init__(name, parent)
         self.lineno = lineno
         self.source = source
+        self.own_markers = [Mark("usefixtures", args=tuple(fixtures), kwargs={})]
 
         self.funcargs = {}  # type: ignore
         self._fixtureinfo = None
 
     def setup(self) -> None:
-        def func() -> None:
-            """placeholder for the test function"""
-
         fixturemanager = (
             self.session._fixturemanager  # pylint: disable=protected-access
         )
         self._fixtureinfo = fixturemanager.getfixtureinfo(  # type: ignore
-            node=self, func=func, cls=None, funcargs=False
+            node=self, func=None, cls=None, funcargs=False
         )
         FixtureRequest(  # pylint: disable=protected-access
             self, _ispytest=True
@@ -119,6 +125,7 @@ class MarkdownFile(pytest.File):
                 name=parsed_args.pop("name", f"python-section-{num}"),
                 source=token.content,
                 lineno=lineno,
+                fixtures=parsed_args.pop("fixtures", []),
             )
 
 

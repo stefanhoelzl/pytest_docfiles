@@ -68,7 +68,7 @@ def test_fixtures_autouse(pytester: pytest.Pytester) -> None:
             "import os, pytest",
             "@pytest.fixture(autouse=True)",
             "def set_test_env_variable():",
-            "    os.environ['TEST_ENV_VARIABLE'] = '1'",
+            "    os.environ['TEST_AUTOUSE_FIXTURE'] = '1'",
         )
     )
     pytester.makefile(
@@ -76,7 +76,29 @@ def test_fixtures_autouse(pytester: pytest.Pytester) -> None:
         doc=joined(
             "```python",
             "import os",
-            "assert os.environ['TEST_ENV_VARIABLE'] == '1'",
+            "assert os.environ['TEST_AUTOUSE_FIXTURE'] == '1'",
+            "```",
+        ),
+    )
+    result = pytester.runpytest("--docfiles", "-k", "doc.md")
+    assert result.ret == 0
+
+
+def test_explicit_use_fixture(pytester: pytest.Pytester) -> None:
+    pytester.makeconftest(
+        joined(
+            "import os, pytest",
+            "@pytest.fixture",
+            "def set_test_env_variable():",
+            "    os.environ['TEST_EXPLICIT_USE_FIXTURE'] = '1'",
+        )
+    )
+    pytester.makefile(
+        ".md",
+        doc=joined(
+            """```python {"fixtures": ["set_test_env_variable"]}""",
+            "import os",
+            "assert os.environ['TEST_EXPLICIT_USE_FIXTURE'] == '1'",
             "```",
         ),
     )
