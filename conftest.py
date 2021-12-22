@@ -8,6 +8,7 @@ pytest_plugins = ["pytester"]
 @profile(autouse=True)  # type: ignore
 def default(config: Config) -> None:
     """Setup default pytest options."""
+    config.option.docfiles = True
     config.option.newfirst = True
     config.option.failedfirst = True
     config.option.tbstyle = "short"
