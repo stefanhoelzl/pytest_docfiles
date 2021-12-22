@@ -2,9 +2,8 @@
 import ast
 import itertools
 import json
-import types
 from pathlib import Path
-from typing import Any, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 import markdown_it
 import py
@@ -50,10 +49,12 @@ class PythonCodeSection(pytest.Item):
         source: str,
         lineno: int,
         fixtures: List[str],
+        scope: Dict[str, Any],
     ):
         super().__init__(name, parent)
         self.lineno = lineno
         self.source = source
+        self.scope = scope
         self.own_markers = [Mark("usefixtures", args=tuple(fixtures), kwargs={})]
 
         self.funcargs = {}  # type: ignore
@@ -78,13 +79,11 @@ class PythonCodeSection(pytest.Item):
         )
 
         compiled = compile(tree, str(self.fspath), "exec", dont_inherit=True)
-        mod = types.ModuleType(self.name)
-
         fixture_request = self._setup_fixture_request()
         for fixture in ["tmp_path"]:
-            mod.__dict__[fixture] = fixture_request.getfixturevalue(fixture)
+            self.scope[fixture] = fixture_request.getfixturevalue(fixture)
 
-        exec(compiled, mod.__dict__)  # pylint: disable=exec-used
+        exec(compiled, self.scope)  # pylint: disable=exec-used
 
     def repr_failure(
         self,
@@ -121,16 +120,18 @@ class MarkdownFile(pytest.File):
     def collect(self) -> Generator[pytest.Item, None, None]:
         """Collects python code sections from a markdown file."""
         lang = "python"
+        scopes: Dict[str, Dict[str, Any]] = {}
         for num, token in enumerate(_code_tokens(Path(str(self.fspath)), lang=lang)):
             lineno = token.map[0] + 1  # type: ignore
             args = token.info[len(lang) :].strip()
             parsed_args = json.loads(args) if args else {}
             yield PythonCodeSection.from_parent(
                 self,
-                name=parsed_args.pop("name", f"python-section-{num}"),
+                name=parsed_args.get("name", f"python-section-{num}"),
                 source=token.content,
                 lineno=lineno,
-                fixtures=parsed_args.pop("fixtures", []),
+                fixtures=parsed_args.get("fixtures", []),
+                scope=scopes.setdefault(parsed_args.get("scope"), {}),
             )
 
 

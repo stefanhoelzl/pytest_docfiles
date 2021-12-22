@@ -117,3 +117,19 @@ def test_inject_fixtures_into_global_namespace(pytester: pytest.Pytester) -> Non
     )
     result = pytester.runpytest("--docfiles", "-k", "doc.md")
     assert result.ret == 0
+
+
+def test_scopes(pytester: pytest.Pytester) -> None:
+    pytester.makefile(
+        ".md",
+        doc=joined(
+            """```python {"scope": "scope"}""",
+            "value = 1",
+            "```",
+            """```python {"scope": "scope"}""",
+            "assert value == 1",
+            "```",
+        ),
+    )
+    result = pytester.runpytest("--docfiles", "-k", "doc.md")
+    assert result.ret == 0
