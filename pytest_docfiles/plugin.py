@@ -39,7 +39,7 @@ class SectionTracebackEntry(TracebackEntry):
         return f"section <{self.section_name}>"
 
 
-class PythonCodeSection(pytest.Item):
+class PythonCodeSection(pytest.Item):  # pylint: disable=too-many-instance-attributes
     """pytest representation of a markdown python code section."""
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -57,6 +57,7 @@ class PythonCodeSection(pytest.Item):
         self.source = source
         self.scope = scope
         self.skip = skip
+        self.fixtures = fixtures
         self.own_markers = [Mark("usefixtures", args=tuple(fixtures), kwargs={})]
 
         self.funcargs = {}  # type: ignore
@@ -85,7 +86,7 @@ class PythonCodeSection(pytest.Item):
 
         compiled = compile(tree, str(self.fspath), "exec", dont_inherit=True)
         fixture_request = self._setup_fixture_request()
-        for fixture in ["tmp_path"]:
+        for fixture in self.fixtures:
             self.scope[fixture] = fixture_request.getfixturevalue(fixture)
 
         exec(compiled, self.scope)  # pylint: disable=exec-used
