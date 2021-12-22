@@ -11,6 +11,7 @@ import pytest
 from _pytest._code.code import ExceptionInfo, TerminalRepr, TracebackEntry
 from _pytest.assertion.rewrite import rewrite_asserts
 from _pytest.config.argparsing import Parser
+from _pytest.fixtures import FixtureRequest
 
 
 class SectionTracebackEntry(TracebackEntry):
@@ -44,6 +45,23 @@ class PythonCodeSection(pytest.Item):
         super().__init__(name, parent)
         self.lineno = lineno
         self.source = source
+
+        self.funcargs = {}  # type: ignore
+        self._fixtureinfo = None
+
+    def setup(self) -> None:
+        def func() -> None:
+            """placeholder for the test function"""
+
+        fixturemanager = (
+            self.session._fixturemanager  # pylint: disable=protected-access
+        )
+        self._fixtureinfo = fixturemanager.getfixtureinfo(  # type: ignore
+            node=self, func=func, cls=None, funcargs=False
+        )
+        FixtureRequest(  # pylint: disable=protected-access
+            self, _ispytest=True
+        )._fillfixtures()
 
     def runtest(self) -> None:
         tree = ast.parse(self.source)

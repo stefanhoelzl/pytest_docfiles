@@ -2,6 +2,10 @@
 import pytest
 
 
+def joined(*lines: str) -> str:
+    return "\n".join(lines)
+
+
 def test_pass(pytester: pytest.Pytester) -> None:
     pytester.makefile(".md", doc="```python\nprint('test-output', end='')\n```")
     result = pytester.runpytest("--docfiles", "-s")
@@ -9,7 +13,13 @@ def test_pass(pytester: pytest.Pytester) -> None:
 
 
 def test_rewrite_assertion(pytester: pytest.Pytester) -> None:
-    pytester.makefile(".md", doc="```python\nassert 'A' == 'B', 'message'\n```")
+    pytester.makefile(
+        ".md",
+        doc=joined(
+            "```python\nassert 'A' == 'B', 'message'",
+            "```",
+        ),
+    )
     result = pytester.runpytest("--docfiles")
     result.stdout.fnmatch_lines(
         [
@@ -22,10 +32,22 @@ def test_rewrite_assertion(pytester: pytest.Pytester) -> None:
 
 
 def test_rewrite_stacktrace(pytester: pytest.Pytester) -> None:
-    pytester.makepyfile(module="def fn():\n    raise Exception('e')\n")
+    pytester.makepyfile(
+        module=joined(
+            "def fn():",
+            "    raise Exception('e')",
+        )
+    )
     pytester.syspathinsert(".")
     pytester.makefile(
-        ".md", doc="# heading\n```python\nimport module\nmodule.fn()\n```"
+        ".md",
+        doc=joined(
+            "# heading",
+            "```python",
+            "import module",
+            "module.fn()",
+            "```",
+        ),
     )
     result = pytester.runpytest("--docfiles", "--tb=short", "-k", "doc.md")
     result.stdout.fnmatch_lines(
@@ -38,3 +60,25 @@ def test_rewrite_stacktrace(pytester: pytest.Pytester) -> None:
             "E   Exception: e",
         ]
     )
+
+
+def test_fixtures_autouse(pytester: pytest.Pytester) -> None:
+    pytester.makeconftest(
+        joined(
+            "import os, pytest",
+            "@pytest.fixture(autouse=True)",
+            "def set_test_env_variable():",
+            "    os.environ['TEST_ENV_VARIABLE'] = '1'",
+        )
+    )
+    pytester.makefile(
+        ".md",
+        doc=joined(
+            "```python",
+            "import os",
+            "assert os.environ['TEST_ENV_VARIABLE'] == '1'",
+            "```",
+        ),
+    )
+    result = pytester.runpytest("--docfiles", "-k", "doc.md")
+    assert result.ret == 0
